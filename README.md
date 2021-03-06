@@ -5,7 +5,7 @@ In an ideal system, we would like for the crowdsourcing system of [r/wallstreetb
 
 In this project, we aim to quantify the magnitude these effects have on the overall success of the post. We hope to answer the following questions: Which human-influenced factors influence post popularity in the r/wallstreetbets subreddit? How do these popular posts influence future posts?
 
-We use [this Kaggle dataset](https://www.kaggle.com/gpreda/reddit-wallstreetsbets-posts), which provides data such s post titles, post score, number of comments, timestamps, etc.
+We use [this Kaggle dataset](https://www.kaggle.com/unanimad/reddit-rwallstreetbets).
 
 Authors: Alan Sun, Jimmy DeLano, Will Zhang
 
