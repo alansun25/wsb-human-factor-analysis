@@ -1,0 +1,15 @@
+---
+title: "Project 1"
+author: "Alan Sun, Jimmy DeLano, Will Zhang"
+date: "3/6/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+wsb <- read.csv("r_wallstreetbets_posts.csv")
+```
+
