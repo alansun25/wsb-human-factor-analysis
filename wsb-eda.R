@@ -1,5 +1,7 @@
-require(ggplot2)
-require(dplyr)
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(data.table)
 
 ##################
 ### DATAFRAMES ###
@@ -32,10 +34,52 @@ for (i in 1:24) {
 }
 
 # Dataframe for pre-GME
-wsb_pre_GME <- wsb_adj[which(wsb_adj$created_utc < 1610496000),]
+wsb_pre_GME <- wsb_adj[which(wsb_adj$day < "2021-01-13"),]
+post_times_pre_GME <- data.frame(table(wsb_pre_GME$time_hour))
+names(post_times_pre_GME) <- c("hour", "totalPosts")
+for (i in 1:24) {
+        post_times_pre_GME$avg_score[i] = mean(na.omit(wsb_pre_GME[wsb_pre_GME$time_hour==i-1, "score"]))
+}
 
 # Dataframe for since GME (since the 50% stock surge on 1/13/21)
-wsb_since_GME <- wsb_adj[which(wsb_adj$created_utc >= 1610496000),]
+wsb_since_GME <- wsb_adj[which(wsb_adj$day >= "2021-01-13"),]
+post_times_since_GME <- data.frame(table(wsb_since_GME$time_hour))
+names(post_times_since_GME) <- c("hour", "totalPosts")
+for (i in 1:24) {
+        post_times_since_GME$avg_score[i] = mean(na.omit(wsb_since_GME[wsb_since_GME$time_hour==i-1, "score"]))
+}
+
+# Dataframe for user information
+users <- data.frame(table(wsb_adj$author))
+users_pre <- data.frame(table(wsb_pre_GME$author))
+users_since <- data.frame(table(wsb_since_GME$author))
+names(users) <- c("author", "numOfPosts")
+names(users_pre) <- c("author", "numOfPostsPre")
+names(users_since) <- c("author", "numOfPostsSince")
+users_combined <- merge(users, users_pre, by="author", all=TRUE)
+users_combined <- merge(users_combined, users_since, by="author", all=TRUE)
+users_combined[is.na(users_combined)] <- 0
+
+# get max scores for each user all time, pre, and since; add to users combined
+users_max_scores <- wsb_adj[order(wsb_adj$author, -abs(wsb_adj$score)),]
+users_max_scores <- users_max_scores[!duplicated(users_max_scores$author),]
+users_max_scores <- users_max_scores[,c("author", "score")]
+users_combined <- merge(users_combined, users_max_scores, by="author", all=TRUE)
+names(users_combined)[names(users_combined)=="score"] <- "maxScore"
+
+users_max_scores_pre <- wsb_pre_GME[order(wsb_pre_GME$author, -abs(wsb_pre_GME$score)),]
+users_max_scores_pre <- users_max_scores_pre[!duplicated(users_max_scores_pre$author),]
+users_max_scores_pre <- users_max_scores_pre[,c("author", "score")]
+users_combined <- merge(users_combined, users_max_scores_pre, by="author", all=TRUE)
+names(users_combined)[names(users_combined)=="score"] <- "maxScorePre"
+
+users_max_scores_since <- wsb_since_GME[order(wsb_since_GME$author, -abs(wsb_since_GME$score)),]
+users_max_scores_since <- users_max_scores_since[!duplicated(users_max_scores_since$author),]
+users_max_scores_since <- users_max_scores_since[,c("author", "score")]
+users_combined <- merge(users_combined, users_max_scores_since, by="author", all=TRUE)
+names(users_combined)[names(users_combined)=="score"] <- "maxScoreSince"
+
+users_combined <- users_combined[-c(2500, 415182, 32478),]
 
 ###############
 ### VISUALS ###
@@ -57,10 +101,22 @@ ggplot(wsb_adj, aes(x=time_hour, y=score)) +
 ggplot(data=post_times, aes(x=hour, y=avg_score, group=1)) +
         geom_line(color="coral1") +
         geom_point(color="coral1") +
-        labs(title="Average scores of posts based on the time of day they were posted",
+        labs(title="Average scores of posts based on the time of day they were posted (1/1/20 - 2/16/21)",
              x="Hour of the day (GMT)", y="Average score") +
         theme_minimal() +
         theme(plot.title = element_text(hjust = 0.5))
+
+# average scores of each hour pre-GME and since-GME
+ggplot(NULL, aes(x=hour, y=avg_score, group=1)) +
+        geom_line(color="coral1", data=post_times_pre_GME) +
+        geom_point(color="coral1", data=post_times_pre_GME) +
+        geom_line(color="dodgerblue1", data=post_times_since_GME) +
+        geom_point(color="dodgerblue1", data=post_times_since_GME) +
+        labs(title="Average scores of posts based on the time of day they were posted",
+             x="Hour of the day (GMT)", y="Average score") +
+        theme_minimal() +
+        theme(plot.title = element_text(hjust = 0.5)) +
+        scale_y_continuous(breaks=c(10,20,30,40,50))
 
 # time series of number of posts between full time frame
 ggplot(daily_posts_df, aes(x=day, y=numberOfPosts)) +
@@ -102,21 +158,37 @@ ggplot(daily_posts_df, aes(x=day, y=numberOfPosts)) +
 ### OTHER STATS ###
 ###################
 
+mean(wsb_adj$score)
+
 # Day with most posts
 (max_posts <- which.max(daily_posts)) # -> 2021-01-28, 120969 posts
 # Create data frame of 1/28/21
 wsb_max_posts <- wsb_adj[which(wsb_adj$day == "2021-01-28"),]
 
-mean(wsb_pre_GME$score)
+mean(wsb_pre_GME$score) # 6.859777
 max(wsb_pre_GME$score) # most upvotes pre-GME -> 55907
 max(daily_posts_df[daily_posts_df$day<"2021-01-13","numberOfPosts"])
 mean(daily_posts_df[daily_posts_df$day<"2021-01-13","numberOfPosts"])
 
-mean(wsb_since_GME$score)
+mean(wsb_since_GME$score) # 28.4237
 max(wsb_since_GME$score) # most upvotes during GME -> 134840
 max(daily_posts_df[daily_posts_df$day>="2021-01-13","numberOfPosts"])
 mean(daily_posts_df[daily_posts_df$day>="2021-01-13","numberOfPosts"])
 wsb_adj[which(wsb_adj$score == 134840),] # row 80425
 wsb_adj[80425, "time_hour"] # 19
 
+post_times[which.min(post_times$avg_score),"avg_score"]
+post_times[which.max(post_times$avg_score),"avg_score"]
+
+post_times_pre_GME[which.min(post_times_pre_GME$avg_score),"avg_score"]
+post_times_pre_GME[which.max(post_times_pre_GME$avg_score),"avg_score"]
+
+post_times_since_GME[which.min(post_times_since_GME$avg_score),"avg_score"]
+post_times_since_GME[which.max(post_times_since_GME$avg_score),"avg_score"]
+
+# count number of users with at least 20 posts
+length(which(users_combined$numOfPosts>=20))
+
+# person who made highest score post pre and since
+users_combined[which.max(users_combined$maxScorePre), "author"]
 
